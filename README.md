@@ -83,3 +83,15 @@ Transcripts include speaker labels (e.g. `[Speaker 1]`, `[Speaker 2]`) and are f
 - Read-only — cannot create or edit recordings
 - Requires recordings from a Google Pixel device with backup enabled
 - Google session may expire after several weeks (re-run `recorder login`)
+
+## Agent output
+
+Inspired by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press) agent UX:
+
+- Piped stdout auto-uses JSON when `--format` is `table` (no `--json` needed)
+- `--compact` for high-gravity fields only
+- `--select id,title` to project JSON/CSV fields
+- `--csv` for spreadsheet-friendly rows
+- `--quiet` / `-q` to suppress status lines
+- Exit codes: `0` ok, `2` usage, `3` not found, `4` auth, `5` api/runtime
+

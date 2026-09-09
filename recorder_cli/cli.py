@@ -6,6 +6,18 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from recorder_cli.agent_ux import (
+    EXIT_AUTH,
+    EXIT_NOT_FOUND,
+    agent_output_options,
+    die,
+    emit_csv,
+    emit_json,
+    note_showing,
+    resolve_format,
+    select_fields,
+)
+
 from recorder_cli.browser import login as browser_login, has_session
 from recorder_cli.mcp_setup import CLIENTS
 from recorder_cli.recorder import RecorderClient
@@ -96,9 +108,9 @@ def login():
 
 
 @main.command("list")
-@click.option("--format", "fmt", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@agent_output_options()
 @click.option("--id-only", is_flag=True, help="Print only recording IDs")
-def list_recordings(fmt, id_only):
+def list_recordings(fmt, compact, select, quiet, as_csv, id_only):
     """List all recordings."""
     _check_session()
     client = RecorderClient()
@@ -109,18 +121,33 @@ def list_recordings(fmt, id_only):
             click.echo(rec.id)
         return
 
-    if fmt == "json":
+    data = [
+        {
+            "id": r.id,
+            "title": r.title,
+            "created_at": r.created_at.isoformat(),
+            "duration_seconds": r.duration_seconds,
+            "has_transcript": r.has_transcript,
+        }
+        for r in recordings
+    ]
+    if compact:
         data = [
             {
-                "id": r.id,
-                "title": r.title,
-                "created_at": r.created_at.isoformat(),
-                "duration_seconds": r.duration_seconds,
-                "has_transcript": r.has_transcript,
+                "id": r["id"],
+                "title": r["title"],
+                "created_at": r["created_at"],
+                "has_transcript": r["has_transcript"],
             }
-            for r in recordings
+            for r in data
         ]
-        click.echo(json.dumps(data, indent=2))
+    data = select_fields(data, select)
+    fmt = resolve_format(fmt)
+    if as_csv:
+        emit_csv(data if isinstance(data, list) else [data])
+        return
+    if fmt == "json":
+        emit_json(data)
         return
 
     table = Table(title="Recordings")
@@ -140,12 +167,14 @@ def list_recordings(fmt, id_only):
             "Yes" if rec.has_transcript else "No",
         )
     console.print(table)
+    note_showing(len(recordings), quiet=quiet, noun="recordings")
 
 
 @main.command()
 @click.argument("recording_id")
 @click.option("--output", "-o", type=click.Path(), default=".", help="Output directory")
-def transcript(recording_id, output):
+@click.option("--quiet", "-q", is_flag=True)
+def transcript(recording_id, output, quiet):
     """Save transcript as a text file."""
     _check_session()
     client = RecorderClient()
@@ -154,27 +183,54 @@ def transcript(recording_id, output):
     out_path.mkdir(parents=True, exist_ok=True)
     filepath = out_path / f"{recording_id}.txt"
     filepath.write_text(t.full_text)
-    console.print(f"[green]Transcript saved to {filepath}[/green]")
+    if quiet:
+        click.echo(str(filepath))
+    else:
+        console.print(f"[green]Transcript saved to {filepath}[/green]")
 
 
 @main.command()
 @click.argument("recording_id")
 @click.option("--output", "-o", type=click.Path(), default=".", help="Output directory")
-def download(recording_id, output):
+@click.option("--quiet", "-q", is_flag=True)
+def download(recording_id, output, quiet):
     """Download audio file."""
     _check_session()
     client = RecorderClient()
     filepath = asyncio.run(client.download_audio(recording_id, Path(output)))
-    console.print(f"[green]Audio saved to {filepath}[/green]")
+    if quiet:
+        click.echo(str(filepath))
+    else:
+        console.print(f"[green]Audio saved to {filepath}[/green]")
 
 
 @main.command()
 @click.argument("recording_id")
-def info(recording_id):
+@agent_output_options()
+def info(recording_id, fmt, compact, select, quiet, as_csv):
     """Show metadata for a recording."""
     _check_session()
     client = RecorderClient()
     rec = asyncio.run(client.get_recording_info(recording_id))
+    if not rec:
+        die(f"No recording {recording_id}", EXIT_NOT_FOUND, hint="Run: recorder list --id-only")
+    data = {
+        "id": rec.id,
+        "title": rec.title,
+        "created_at": rec.created_at.isoformat(),
+        "duration_seconds": rec.duration_seconds,
+        "has_transcript": rec.has_transcript,
+    }
+    if compact:
+        data = {k: data[k] for k in ("id", "title", "created_at", "has_transcript")}
+    data = select_fields(data, select)
+    fmt = resolve_format(fmt)
+    if as_csv:
+        emit_csv([data] if isinstance(data, dict) else data)
+        return
+    if fmt == "json":
+        emit_json(data)
+        return
     console.print(f"[bold]ID:[/bold] {rec.id}")
     console.print(f"[bold]Title:[/bold] {rec.title}")
     console.print(f"[bold]Created:[/bold] {rec.created_at.strftime('%Y-%m-%d %H:%M')}")
@@ -185,13 +241,36 @@ def info(recording_id):
 
 @main.command()
 @click.argument("query")
-def search(query):
+@agent_output_options()
+@click.option("--id-only", is_flag=True)
+def search(query, fmt, compact, select, quiet, as_csv, id_only):
     """Search recordings by keyword."""
     _check_session()
     client = RecorderClient()
     results = asyncio.run(client.search_recordings(query))
+    if id_only:
+        for rec in results:
+            click.echo(rec.id)
+        return
+    data = [
+        {
+            "id": r.id,
+            "title": r.title,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in results
+    ]
+    data = select_fields(data, select)
+    fmt = resolve_format(fmt)
+    if as_csv:
+        emit_csv(data)
+        return
+    if fmt == "json":
+        emit_json(data)
+        return
     if not results:
-        console.print("[yellow]No recordings found.[/yellow]")
+        if not quiet:
+            console.print("[yellow]No recordings found.[/yellow]")
         return
     table = Table(title=f"Search: {query}")
     table.add_column("ID", style="cyan")
@@ -200,6 +279,7 @@ def search(query):
     for rec in results:
         table.add_row(rec.id, rec.title, rec.created_at.strftime("%Y-%m-%d %H:%M"))
     console.print(table)
+    note_showing(len(results), quiet=quiet, noun="recordings")
 
 
 @main.command()
@@ -220,5 +300,4 @@ def sync(output):
 def _check_session():
     """Check for valid session, exit with message if missing."""
     if not has_session():
-        console.print("[red]No session found. Run: recorder login[/red]")
-        raise SystemExit(1)
+        die("No session found.", EXIT_AUTH, hint="Run: recorder login")
