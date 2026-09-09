@@ -34,10 +34,15 @@ Opens a Chrome window. Sign into your Google account. The session is saved as a 
 recorder list                          # Table of all recordings
 recorder list --format json            # JSON output
 recorder list --id-only                # Just IDs (for scripting)
+recorder list --compact | jq           # Piped stdout → JSON automatically
+recorder list --select id,title --csv
+recorder search <query>
+recorder search <query> --compact --quiet
+recorder info <id>
+recorder info <id> --format json --compact
 recorder transcript <id> -o ~/docs/    # Save transcript as .txt
 recorder download <id> -o ~/audio/     # Download audio as .m4a
-recorder info <id>                     # Print recording metadata
-recorder search <query>                # Search by keyword
+recorder download <id> -o ~/audio/ -q  # Print path only
 recorder sync -o ~/recorder-backup/    # Bulk download everything
 ```
 

@@ -7,7 +7,7 @@ description: Unofficial CLI for Google Recorder (recorder.google.com), the Pixel
 
 ## Overview
 
-Wraps the `recorder` CLI (installed from the `CodefiLabs/google-recorder-cli` GitHub repo) to list, search, and pull transcripts/audio from recorder.google.com. Read-only — cannot create, edit, or delete recordings.
+Wraps the `recorder` CLI (installed from the `truefrontier/google-recorder-cli` GitHub repo) to list, search, and pull transcripts/audio from recorder.google.com. Read-only — cannot create, edit, or delete recordings.
 
 ## Prerequisite: authenticated session (check this before running anything but `login`)
 
@@ -15,7 +15,7 @@ This is the part that breaks silently if skipped, so verify it first.
 
 1. **`recorder` is installed and on PATH.** Check with `which recorder`. If missing, install it straight from GitHub — no local clone needed:
    ```
-   pipx install git+https://github.com/CodefiLabs/google-recorder-cli.git
+   pipx install git+https://github.com/truefrontier/google-recorder-cli.git
    ```
    (`pip install --user git+https://github.com/CodefiLabs/google-recorder-cli.git` works too if `pipx` isn't available.) If the install itself fails — no network access, no `pip`/`pipx` on this machine — tell the user rather than trying to reconstruct the tool from scratch. It also needs real Google Chrome installed (Playwright launches it via `channel="chrome"`, not Playwright's bundled Chromium — `playwright install chromium` alone is not sufficient).
 
@@ -36,6 +36,8 @@ Everything below except `login` requires the session above and only reads data (
 ```
 recorder list                  # table: ID, Title, Date, Duration, Transcript (Yes/No)
 recorder list --format json    # JSON array: id, title, created_at, duration_seconds, has_transcript
+recorder list --compact | jq   # Piped stdout auto-JSON; --compact/--select/--csv/--quiet also work
+recorder info <id> --format json --compact
 recorder list --id-only        # bare IDs, one per line — for piping into other commands
 ```
 
