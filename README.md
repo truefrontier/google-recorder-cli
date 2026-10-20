@@ -1,3 +1,5 @@
+> **Archived.** Replaced by [webcli](https://github.com/truefrontier/webcli). Install: `brew install truefrontier/tap/webcli` or `pipx install truefrontier-webcli`. The equivalent command is now `webcli recorder`.
+
 # google-recorder-cli
 
 Unofficial CLI and MCP server for [Google Recorder](https://recorder.google.com) — the Google Pixel Recorder web companion.
